@@ -1,0 +1,94 @@
+---
+title: "Cross-cultural similarities in pastoralists' cooperation networks are structured by kinship and social institutions"
+output: 
+  html_document:
+    theme: readable
+---
+
+Code and data are [available on GitHub](https://github.com/matthewgthomas/hierarchies-gifts).
+
+# Map of study sites
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(leaflet)
+library(dplyr)
+library(stringr)
+```
+
+```{r load_data, message=FALSE, warning=FALSE, include=FALSE}
+source("init if necessary.r")
+
+tibet = readLines("data/maqu.geojson") %>% paste(collapse="\n")
+finnmark = readLines("data/finnmark.geojson") %>% paste(collapse="\n")
+```
+
+```{r labels, message=FALSE, warning=FALSE, include=FALSE}
+region_sum = dyads %>% 
+  # calculate per-site totals
+  group_by(PopName) %>% 
+  summarise(n = length(unique(Ego.ID)),
+            groups = length(unique(Ego.HG)),
+            gifts = sum(GiftGiven)) %>% 
+  
+  # keep only the region (Finnmark/Tibet)
+  ungroup() %>% 
+  mutate(PopName = str_split(PopName, ": ", simplify=T)[,1]) %>% 
+  
+  # calculate regional totals
+  group_by(PopName) %>% 
+  summarise_all(sum)
+
+popup_fin = paste(sep = "<br/>", 
+                  "<b>Karasjok and Kautokeino, Finnmark</b>",
+                  paste0("No. herders: ", region_sum %>% filter(PopName=="Finnmark") %>% .$n),
+                  paste0("No. groups: ",  region_sum %>% filter(PopName=="Finnmark") %>% .$groups),
+                  paste0("No. gifts given: ", region_sum %>% filter(PopName=="Finnmark") %>% .$gifts),
+                  paste0("Total area for study sites: 8831 km<sup>2</sup>"))
+
+popup_tib = paste(sep = "<br/>", 
+                  "<b>Maqu county, Gansu province, China</b>",
+                  paste0("No. herders: ", region_sum %>% filter(PopName=="Tibet") %>% .$n),
+                  paste0("No. groups: ",  region_sum %>% filter(PopName=="Tibet") %>% .$groups),
+                  paste0("No. gifts given: ", region_sum %>% filter(PopName=="Tibet") %>% .$gifts),
+                  "Total area for study sites: 10,191 km<sup>2</sup>")
+
+lbl_style = list("color" = "black")
+```
+
+```{r areas, include=FALSE}
+# calculate areas 
+# (commented out because we'll just use estimates found elsewhere - see bottom of this doc for details)
+#
+# library(geojsonio)
+# library(raster)
+#
+# sp_finn = geojson_read("data/finnmark.geojson", what="sp")
+# finnmark_km2 = sum(area(sp_finn) / 1000000)
+# 
+# sp_tib = geojson_read("data/maqu.geojson", what="sp")
+# tibet_km2 = area(sp_tib) / 1000000
+```
+
+```{r map, echo=FALSE, message=FALSE, warning=FALSE}
+leaflet(options=leafletOptions(height=650, width=720)) %>%
+  setView(lng=62, lat = 52, zoom = 2) %>% 
+  addProviderTiles(providers$Esri.WorldTopoMap) %>% 
+  
+  addGeoJSON(finnmark, weight=2.5, color="#444444", fill=T) %>%
+  addLabelOnlyMarkers(lng=25.8, lat=70, label=htmltools::HTML(popup_fin), 
+                      labelOptions=labelOptions(style=lbl_style, noHide=T)) %>% 
+  
+  addGeoJSON(tibet, weight=2.5, color="#444444", fill=T) %>% 
+  addLabelOnlyMarkers(lng=101.70, lat=33.86, label=htmltools::HTML(popup_tib), 
+                      labelOptions=labelOptions(style=lbl_style, noHide=T)) %>% 
+  
+  addMiniMap(tiles=providers$Esri.NatGeoWorldMap, toggleDisplay=T, position="topright")
+```
+
+## Note on areas of study sites
+
+Maqu county in China is 10,191 km^2^, according to [latitude.to](http://latitude.to/articles-by-country/cn/china/241066/maqu-county) (which seems to have gotten the figure from Wikipedia, which in turn is using an outdated link to the [International Fund for Agricultural Development](https://www.ifad.org/)).
+
+In Norway, the district in Kautokeino covers 5,066 km^2^. Herding groups in the district in Karasjok have 3,765 km^2^ of pastures during summer and 3,752 km^2^ for the rest of the year. Data from [Ressursregnskapet for reindriftsnæringen 2015-2016](https://www.landbruksdirektoratet.no/no/reindriften/for-siidaandeler/publikasjoner).
